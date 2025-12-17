@@ -41,4 +41,8 @@ jobs:
           name: Deploy Over SSH
           command: |
               ssh -o "StrictHostKeyChecking no" $SSH_USER@$SSH_HOST "ls -la"
-              
+
+workflows:
+  deploy-flow:
+    jobs:
+      - deploy
