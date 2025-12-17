@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: cimg/base:2024.05
+      - image: ubuntu-2204:2024.05.1
     steps:
       - checkout
       - restore_cache:
@@ -16,7 +16,27 @@ jobs:
       - run:
           name: Fix host authenticity for server
           command: ssh-keyscan $SSH_HOST >> ~/.ssh/known_hosts
-
+      - run:
+          name: Install and Connect Cloudflare WARP
+          command: |
+            # 1. Add Cloudflare GPG key and Repository
+            curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ jammy main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+            
+            # 2. Install WARP
+            sudo apt-get update && sudo apt-get install cloudflare-warp -y
+            
+            # 3. Register and Connect (Headless Mode)
+            # Use --accept-tos to bypass interactive prompts
+            warp-cli --accept-tos registration new
+            warp-cli --accept-tos mode warp
+            warp-cli --accept-tos connect
+            
+            # 4. Wait for connection and verify IPv6
+            echo "Waiting for WARP to connect..."
+            sleep 10
+            curl -6 -s https://www.cloudflare.com/cdn-cgi/trace | grep warp=on || exit 1
+            echo "IPv6 connectivity established!"
       - run:
           name: Deploy Over SSH
           command: |
